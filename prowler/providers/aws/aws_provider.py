@@ -542,6 +542,14 @@ class AwsProvider(Provider):
                 if aws_session_token:
                     session_arguments["aws_session_token"] = aws_session_token
 
+            # Check if AWS_DATA_PATH is set and use custom botocore session
+            aws_data_path = os.environ.get("AWS_DATA_PATH")
+            if aws_data_path:
+                logger.debug(f"Using custom AWS_DATA_PATH: {aws_data_path}")
+                botocore_session = BotocoreSession()
+                botocore_session.set_config_variable("data_path", aws_data_path)
+                session_arguments["botocore_session"] = botocore_session
+
             if mfa:
                 session = Session(**session_arguments)
                 sts_client = session.client("sts")
@@ -619,6 +627,13 @@ class AwsProvider(Provider):
             assumed_session = BotocoreSession()
             assumed_session._credentials = assumed_refreshable_credentials
             assumed_session.set_config_variable("region", self._identity.profile_region)
+            
+            # Check if AWS_DATA_PATH is set and use custom data path
+            aws_data_path = os.environ.get("AWS_DATA_PATH")
+            if aws_data_path:
+                logger.debug(f"Using custom AWS_DATA_PATH in assumed session: {aws_data_path}")
+                assumed_session.set_config_variable("data_path", aws_data_path)
+            
             return Session(
                 profile_name=self._identity.profile,
                 botocore_session=assumed_session,
@@ -1287,6 +1302,21 @@ class AwsProvider(Provider):
                     profile_name=profile,
                 )
 
+                # Check if AWS_DATA_PATH is set and use custom botocore session
+                aws_data_path = os.environ.get("AWS_DATA_PATH")
+                if aws_data_path:
+                    logger.debug(f"Using custom AWS_DATA_PATH in test_connection: {aws_data_path}")
+                    botocore_session = BotocoreSession()
+                    botocore_session.set_config_variable("data_path", aws_data_path)
+                    session = Session(
+                        aws_access_key_id=assumed_role_credentials.aws_access_key_id,
+                        aws_secret_access_key=assumed_role_credentials.aws_secret_access_key,
+                        aws_session_token=assumed_role_credentials.aws_session_token,
+                        region_name=aws_region,
+                        profile_name=profile,
+                        botocore_session=botocore_session,
+                    )
+
             caller_identity = AwsProvider.validate_credentials(session, aws_region)
             # Do an extra validation if the AWS account ID is provided
             if provider_id and caller_identity.account != provider_id:
@@ -1459,11 +1489,13 @@ class AwsProvider(Provider):
             sts_client = create_sts_session(session, 'us-west-2')
         """
         try:
-            sts_endpoint_url = (
-                f"https://sts.{aws_region}.amazonaws.com"
-                if not aws_region.startswith("cn-")
-                else f"https://sts.{aws_region}.amazonaws.com.cn"
-            )
+            sts_endpoint_url = os.environ.get("AWS_STS_ENDPOINT_URL")
+            if not sts_endpoint_url:
+                sts_endpoint_url = (
+                    f"https://sts.{aws_region}.amazonaws.com"
+                    if not aws_region.startswith("cn-")
+                    else f"https://sts.{aws_region}.amazonaws.com.cn"
+                )
             return session.client("sts", aws_region, endpoint_url=sts_endpoint_url)
         except Exception as error:
             logger.critical(

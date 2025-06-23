@@ -41,6 +41,11 @@
   <img align="center" src="/docs/img/prowler-cli-quick.gif" width="100%" height="100%">
 </p>
 
+# Custom
+
+- `AWS_DATA_PATH` : Change the API endpoints of AWS.
+- `AWS_STS_ENDPOINT_URL`: Diverts the authentication endpoint of AWS.
+
 # Description
 
 **Prowler** is an open-source security tool designed to assess and enforce security best practices across AWS, Azure, Google Cloud, and Kubernetes. It supports tasks such as security audits, incident response, continuous monitoring, system hardening, forensic readiness, and remediation processes.
